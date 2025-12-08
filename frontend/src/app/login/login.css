@@ -1,0 +1,97 @@
+/* Utility classes for layout */
+.min-h-screen {
+  min-height: 100vh;
+}
+.w-full {
+  width: 100%;
+}
+.flex {
+  display: flex;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.gap-6 {
+  gap: 1.5rem;
+}
+.gap-2 {
+  gap: 0.5rem;
+}
+.p-4 {
+  padding: 1rem;
+}
+.p-8 {
+  padding: 2rem;
+}
+.max-w-md {
+  max-width: 28rem;
+}
+.space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem;
+}
+.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+.mb-4 {
+  margin-bottom: 1rem;
+}
+.h-12 {
+  height: 3rem;
+}
+.w-12 {
+  width: 3rem;
+}
+.rounded-xl {
+  border-radius: 0.75rem;
+}
+.text-center {
+  text-align: center;
+}
+.font-bold {
+  font-weight: 700;
+}
+.tracking-tight {
+  letter-spacing: -0.025em;
+}
+.text-2xl {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+.text-sm {
+  font-size: 0.875rem;
+}
+.text-white {
+  color: white;
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
+.bg-secondary\/50 {
+  background-color: rgba(26, 29, 45, 0.5);
+}
+.bg-gradient-to-tr {
+  background-image: linear-gradient(to top right, var(--tw-gradient-stops));
+}
+.from-violet-600 {
+  --tw-gradient-from: #7c3aed;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(124, 58, 237, 0));
+}
+.to-pink-600 {
+  --tw-gradient-to: #db2777;
+}
+
+/* Helper to simulate tailwind classes since we are using vanilla CSS but reused tailwind names in component */
+/* In a real project with vanilla CSS, strict separation is better, but this bridges the gap for this file */
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+}

@@ -1,0 +1,383 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Role Management
+// ============================================
+enum UserRole {
+  ADMIN
+  EDITOR
+  MARKETER
+  TECH_ADMIN
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  name          String
+  role          UserRole       @default(EDITOR)
+  avatar        String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  contents      Content[]      @relation("ContentAuthor")
+  editHistories EditHistory[]
+  settings      UserSettings?
+  notifications Notification[]
+  platformCredentials PlatformCredential[]
+  aiSettings    AiSettings?
+}
+
+model UserSettings {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Notification preferences
+  notificationFrequency String  @default("REALTIME") // REALTIME, HOURLY, DAILY
+  emailNotifications    Boolean @default(true)
+  pushNotifications     Boolean @default(true)
+  
+  // Target metrics
+  targetViews           Int     @default(1000)
+  targetClickRate       Float   @default(5.0)
+  
+  // Dashboard customization
+  favoriteMenus         String[] @default([])
+  dashboardLayout       Json?    // Card order and visibility
+  
+  // Theme
+  darkMode              String   @default("AUTO") // AUTO, LIGHT, DARK
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model AiSettings {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // LLM Provider settings
+  provider        String   @default("OLLAMA") // OLLAMA, OPENAI, ANTHROPIC, GEMINI
+  model           String   @default("llama3")
+  apiKey          String?  // Encrypted API key for cloud providers
+  apiUrl          String?  // Custom API endpoint (for Ollama)
+  
+  // Generation settings
+  temperature     Float    @default(0.7)
+  maxTokens       Int      @default(2000)
+  
+  // Default prompts
+  systemPrompt    String?  @db.Text
+  contentPrompt   String?  @db.Text // Template for content generation
+  titlePrompt     String?  @db.Text // Template for title generation
+  
+  // Feature toggles
+  autoSeoOptimize Boolean  @default(true)
+  autoTranslate   Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// Topic & Keyword Models (Extended)
+// ============================================
+model Topic {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique
+  score       Float              @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  keywords    Keyword[]
+  contents    Content[]
+  performance TopicPerformance[]
+}
+
+model Keyword {
+  id           Int            @id @default(autoincrement())
+  text         String
+  volume       Int            @default(0)
+  competition  Float          @default(0)
+  topicId      Int?
+  topic        Topic?         @relation(fields: [topicId], references: [id])
+  trends       KeywordTrend[]
+  contents     Content[]      @relation("ContentKeywords")
+}
+
+model TopicPerformance {
+  id            Int      @id @default(autoincrement())
+  topicId       Int
+  topic         Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  date          DateTime @default(now())
+  totalViews    Int      @default(0)
+  totalClicks   Int      @default(0)
+  avgRanking    Float    @default(0)
+  conversionRate Float   @default(0)
+  publishCount  Int      @default(0)
+  
+  @@unique([topicId, date])
+}
+
+model KeywordTrend {
+  id          Int      @id @default(autoincrement())
+  keywordId   Int
+  keyword     Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  date        DateTime @default(now())
+  volume      Int      @default(0)
+  competition Float    @default(0)
+  ranking     Int?
+  trend       String   @default("STABLE") // RISING, FALLING, STABLE
+  
+  @@unique([keywordId, date])
+}
+
+// ============================================
+// Content Management
+// ============================================
+enum ContentStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  ARCHIVED
+}
+
+enum Platform {
+  TISTORY
+  WORDPRESS
+  BOTH
+}
+
+model Content {
+  id              Int              @id @default(autoincrement())
+  title           String
+  body            String
+  excerpt         String?
+  imageUrl        String?
+  status          ContentStatus    @default(DRAFT)
+  platform        Platform         @default(TISTORY)
+  
+  // Author & Topic
+  authorId        Int?
+  author          User?            @relation("ContentAuthor", fields: [authorId], references: [id])
+  topicId         Int?
+  topic           Topic?           @relation(fields: [topicId], references: [id])
+  keywords        Keyword[]        @relation("ContentKeywords")
+  
+  // SEO
+  seoScore        Float            @default(0)
+  seoIssues       String[]         @default([])
+  metaTitle       String?
+  metaDescription String?
+  
+  // Analytics
+  views           Int              @default(0)
+  clicks          Int              @default(0)
+  avgTimeOnPage   Float            @default(0)
+  bounceRate      Float            @default(0)
+  
+  // Duplicate detection
+  similarityHash  String?
+  isDuplicate     Boolean          @default(false)
+  
+  // Timestamps
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  publishedAt     DateTime?
+  
+  // Relations
+  analytics       ContentAnalytics[]
+  editHistory     EditHistory[]
+  publishingLogs  PublishingLog[]
+  scheduledPosts  ScheduledPost[]
+}
+
+model ContentAnalytics {
+  id            Int      @id @default(autoincrement())
+  contentId     Int
+  content       Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  date          DateTime @default(now())
+  
+  // Traffic metrics
+  views         Int      @default(0)
+  uniqueVisitors Int     @default(0)
+  pageViews     Int      @default(0)
+  
+  // Engagement metrics
+  avgTimeOnPage Float    @default(0)
+  bounceRate    Float    @default(0)
+  scrollDepth   Float    @default(0)
+  
+  // Source metrics
+  organicTraffic Int     @default(0)
+  directTraffic  Int     @default(0)
+  referralTraffic Int    @default(0)
+  socialTraffic  Int     @default(0)
+  
+  // Conversion
+  clicks        Int      @default(0)
+  clickRate     Float    @default(0)
+  conversions   Int      @default(0)
+  revenue       Float    @default(0)
+  
+  @@unique([contentId, date])
+}
+
+model EditHistory {
+  id          Int      @id @default(autoincrement())
+  contentId   Int
+  content     Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  
+  action      String   // CREATE, UPDATE, STATUS_CHANGE, PUBLISH
+  field       String?  // Which field was changed
+  oldValue    String?  @db.Text
+  newValue    String?  @db.Text
+  
+  createdAt   DateTime @default(now())
+}
+
+// ============================================
+// Publishing & Scheduling
+// ============================================
+model ScheduledPost {
+  id            Int           @id @default(autoincrement())
+  contentId     Int
+  content       Content       @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  platform      Platform
+  scheduledFor  DateTime
+  status        String        @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  retryCount    Int           @default(0)
+  error         String?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model PublishingLog {
+  id            Int      @id @default(autoincrement())
+  contentId     Int
+  content       Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  platform      Platform
+  
+  status        String   // SUCCESS, FAILED, RETRYING
+  externalId    String?  // Post ID on the platform
+  externalUrl   String?  // URL on the platform
+  
+  error         String?
+  retryCount    Int      @default(0)
+  responseData  Json?
+  
+  createdAt     DateTime @default(now())
+}
+
+// ============================================
+// Monitoring & Notifications
+// ============================================
+model ApiErrorLog {
+  id            Int      @id @default(autoincrement())
+  platform      Platform
+  endpoint      String
+  method        String
+  statusCode    Int?
+  errorMessage  String   @db.Text
+  requestData   Json?
+  responseData  Json?
+  retryCount    Int      @default(0)
+  resolved      Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+}
+
+enum NotificationType {
+  API_ERROR
+  PUBLISH_SUCCESS
+  PUBLISH_FAILED
+  SCHEDULE_REMINDER
+  SEO_WARNING
+  DUPLICATE_DETECTED
+  KEYWORD_ALERT
+  SYSTEM
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  userId      Int
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  message     String
+  data        Json?
+  read        Boolean          @default(false)
+  
+  createdAt   DateTime         @default(now())
+}
+
+// ============================================
+// Reports
+// ============================================
+enum ReportType {
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ReportFormat {
+  PDF
+  CSV
+  JSON
+}
+
+model Report {
+  id          Int          @id @default(autoincrement())
+  type        ReportType
+  format      ReportFormat
+  title       String
+  dateFrom    DateTime
+  dateTo      DateTime
+  data        Json?
+  filePath    String?
+  
+  createdAt   DateTime     @default(now())
+}
+
+// ============================================
+// Platform Credentials
+// ============================================
+model PlatformCredential {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform        Platform
+  name            String   // Display name (e.g., "My Tistory Blog")
+  
+  // Credentials (stored as JSON)
+  blogName        String?  // Blog identifier
+  accessToken     String?  // API token
+  apiKey          String?  // API key
+  username        String?  // Username/email
+  appPassword     String?  // Application password
+  siteUrl         String?  // Site URL
+  
+  isActive        Boolean  @default(true)
+  lastTestedAt    DateTime?
+  lastTestResult  String?  // SUCCESS, FAILED, PENDING
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([userId, platform, name])
+}
